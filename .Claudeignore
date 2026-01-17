@@ -1,0 +1,63 @@
+# STM32 HAL驱动库 - 官方代码，一般不需要修改
+Drivers/
+
+# FreeRTOS源码和其他中间件 - 开源库代码
+Middlewares/
+
+# Keil工程文件和编译产物
+MDK-ARM/
+*.uvprojx
+*.uvoptx
+*.uvguix*
+*.lst
+*.map
+*.lnp
+
+# 编译生成的二进制文件
+*.hex
+*.bin
+*.o
+*.d
+*.crf
+*.axf
+*.elf
+
+# USB主机功能（如果不需要）
+USB_HOST/
+
+# HAL自动生成的配置文件（保留main.c和freertos.c）
+Core/Src/adc.c
+Core/Src/dma.c
+Core/Src/gpio.c
+Core/Src/i2c.c
+Core/Src/tim.c
+Core/Src/usart.c
+Core/Src/system_stm32f4xx.c
+Core/Src/stm32f4xx_hal_msp.c
+Core/Src/stm32f4xx_hal_timebase_tim.c
+Core/Src/stm32f4xx_it.c
+
+Core/Inc/adc.h
+Core/Inc/dma.h
+Core/Inc/gpio.h
+Core/Inc/i2c.h
+Core/Inc/tim.h
+Core/Inc/usart.h
+Core/Inc/stm32f4xx_hal_conf.h
+Core/Inc/stm32f4xx_it.h
+
+# 备份文件
+*.orig
+*.bak
+*.swp
+*~
+
+# 临时文件
+keilkill.bat
+
+# 保留的核心文件（即使在上面的模式中匹配也不忽略）
+!Core/Src/main.c
+!Core/Src/freertos.c
+!Core/Inc/main.h
+!Core/Inc/FreeRTOSConfig.h
+

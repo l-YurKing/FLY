@@ -1,0 +1,35 @@
+# Keil MDK
+*.uvgui.*
+*.bak
+*.dep
+*.uvopt
+*.o
+*.d
+*.crf
+*.lst
+*.map
+*.axf
+*.lnp
+*.iex
+*.scvd
+Listings/
+Objects/
+DebugConfig/
+RTE/
+
+# Build outputs
+*.hex
+*.bin
+*.elf
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary
+*.tmp
+*.log
