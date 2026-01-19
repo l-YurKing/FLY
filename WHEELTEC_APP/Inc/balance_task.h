@@ -61,5 +61,20 @@ typedef struct{
 extern float g_readonly_mainTaskFreq;
 extern float angle_to_rad(float angle);
 
+// 飞行日志数据结构
+#if ENABLE_FLIGHT_DATA_OUTPUT
+#include "bsp_imu.h"  // 需要 ATTITUDE_DATA_t 和 IMU_DATA_t
+typedef struct {
+    ATTITUDE_DATA_t attitude;
+    IMU_DATA_t imu;
+    float height;
+    float posX, posY;
+    float targetX, targetY;
+    float speedX, speedY;
+    float voltage;
+    uint16_t motorA, motorB, motorC, motorD;
+    FlyControlType_t cmd;
+} FlightLogData_t;
+#endif
 
 #endif /* __BALANCE_TASK_H */

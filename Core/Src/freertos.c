@@ -43,6 +43,9 @@
 
 //APP
 #include "balance_task.h"
+#if ENABLE_FLIGHT_DATA_OUTPUT
+#include "flight_log_task.h"
+#endif
 
 /* USER CODE END Includes */
 
@@ -53,9 +56,9 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define userconfig_OPEN_STACK_CHECK 0     //©╙фТхннЯу╩╢Сп║╪Л╡И╢Рс║
-#define userconfig_OPEN_CPU_USAGE_CHECK 0 //©╙фТ╪Л╡ИCPUу╪╠х╢Рс║
-#define userconfig_OPEN_CHECK_HEAPSIZE 0  //╪Л╡ИйёсЮ╣д╤я╢Сп║
+#define userconfig_OPEN_STACK_CHECK 0     //О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫у╩О©╫О©╫п║О©╫О©╫О©╫О©╫с║
+#define userconfig_OPEN_CPU_USAGE_CHECK 0 //О©╫О©╫О©╫О©╫О©╫О©╫О©╫CPUу╪О©╫х╢О©╫с║
+#define userconfig_OPEN_CHECK_HEAPSIZE 0  //О©╫О©╫О©╫йёО©╫О©╫д╤я╢О©╫п║
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -67,23 +70,26 @@
 /* USER CODE BEGIN Variables */
 xSemaphoreHandle HandleMutex_printf;
 
-//хннЯ╬Д╠З
+//О©╫О©╫О©╫О©╫О©╫О©╫
 TaskHandle_t sensorhandleTask_Handle; 
 TaskHandle_t balanceTask_Handle;
 TaskHandle_t g_xTaskHandleCoordTask;
 
-//╤сап║╒╤сап╪╞
-QueueHandle_t g_xQueuestp23L_Ori;     //мБн╖иХ╠╦ё╨stp23L╪╓╧Б╡Б╬Ю т╜й╪йЩ╬щ╣д╤сап
-QueueHandle_t g_xQueueN10_Ori;        //мБн╖иХ╠╦ё╨N10юв╢О        т╜й╪йЩ╬щ╣д╤сап
+//О©╫О©╫О©╫п║О©╫О©╫О©╫О©╫п╪О©╫
+QueueHandle_t g_xQueuestp23L_Ori;     //О©╫О©╫н╖О©╫Х╠╦О©╫О©╫stp23LО©╫О©╫О©╫О©╫О©╫О©╫ т╜й╪О©╫О©╫О©╫щ╣д╤О©╫О©╫О©╫
+QueueHandle_t g_xQueueN10_Ori;        //О©╫О©╫н╖О©╫Х╠╦О©╫О©╫N10О©╫в╢О©╫        т╜й╪О©╫О©╫О©╫щ╣д╤О©╫О©╫О©╫
 QueueHandle_t g_xQueuestl06n_Ori;
 
-QueueSetHandle_t g_xQueueSetSensor;   //╢╢╫╗╤сап╪╞ё╛╢Ф╥е╦В╦Ж╢╚╦пфВ╤сап╣д╬Д╠З
-QueueHandle_t g_xQueueFlyControl;     //кджА╥иппфВ©ьжф╤сап
-QueueHandle_t g_xQueueBlueTooth_Ori;  //ю╤яюAPPт╜й╪йЩ╬щ
-QueueHandle_t g_xQueueLidarBuffer;    //юв╢ОйЩ╬щ
+QueueSetHandle_t g_xQueueSetSensor;   //О©╫О©╫О©╫О©╫О©╫О©╫О©╫п╪О©╫О©╫О©╫О©╫О©╫е╦О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫п╣д╬О©╫О©╫
+QueueHandle_t g_xQueueFlyControl;     //О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫ф╤О©╫О©╫О©╫
+QueueHandle_t g_xQueueBlueTooth_Ori;  //О©╫О©╫О©╫О©╫APPт╜й╪О©╫О©╫О©╫О©╫
+QueueHandle_t g_xQueueLidarBuffer;    //в╢
+#if ENABLE_FLIGHT_DATA_OUTPUT
+	QueueHandle_t g_xQueueFlightLog;      // Иё·Х║▄Ф≈╔Е©≈Ф∙╟Ф█╝И≤÷Е┬≈
+	#endif    //О©╫в╢О©╫О©╫О©╫О©╫О©╫
 
-//йб╪ЧвИ
-EventGroupHandle_t g_xEventFlyAction; //кджА╤╞вВйб╪ЧвИ
+//О©╫б╪О©╫О©╫О©╫
+EventGroupHandle_t g_xEventFlyAction; //О©╫О©╫О©╫А╤╞О©╫О©╫О©╫б╪О©╫О©╫О©╫
 
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
@@ -97,30 +103,30 @@ const osThreadAttr_t defaultTask_attributes = {
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
 
-//RTOSо╣мЁ╪Л╡БхннЯ
+//RTOSо╣мЁО©╫О©╫О©╫О©╫О©╫О©╫О©╫
 #if ( 1 == userconfig_OPEN_CPU_USAGE_CHECK ) || ( 1 == userconfig_OPEN_STACK_CHECK ) || ( 1 == userconfig_OPEN_CHECK_HEAPSIZE )
 void CpuUsageCheckTask(void *param);
 #endif
 
-//отй╬хннЯ
+//О©╫О©╫й╬О©╫О©╫О©╫О©╫
 __weak void ShowTask(void* param)
 {
 	for(;;) vTaskDelay(1);
 }
 
-//мБн╖╢╚╦пфВйЩ╬щ╢╕юМхннЯ
+//О©╫О©╫н╖О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫щ╢О©╫О©╫О©╫О©╫О©╫О©╫О©╫
 __weak void SensorHandleTask(void* param)
 {
 	for(;;) vTaskDelay(1);
 }
 
-//ф╫╨БжВ©ьжфхннЯ
+//ф╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫
 __weak void balance_task(void* param)
 {
 	for(;;) vTaskDelay(1);
 }
 
-//ю╤яюAPP©ьжфхннЯ
+//О©╫О©╫О©╫О©╫APPО©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫
 __weak void BluetoothAPPControl_task(void* param)
 {
 	for(;;) vTaskDelay(1);
@@ -149,7 +155,7 @@ void vApplicationMallocFailedHook(void);
 /* Functions needed when configGENERATE_RUN_TIME_STATS is on */
 __weak void configureTimerForRunTimeStats(void)
 {
-	//й╧сцcpuу╪╠х╪фй╠фВг╟ЁУй╪╩╞дзхщ
+	//й╧О©╫О©╫cpuу╪О©╫х╪О©╫й╠О©╫О©╫г╟О©╫О©╫й╪О©╫О©╫О©╫О©╫О©╫О©╫
 	TIM6->CNT = 0;
 }
 
@@ -159,14 +165,14 @@ __weak unsigned long getRunTimeCounterValue(void)
 	static uint16_t lasttime = 0;
 	static uint16_t nowtime = 0;
 	
-	nowtime = TIM6->CNT; //╩Я╣ц╣╠г╟╪фйЩж╣
+	nowtime = TIM6->CNT; //О©╫О©╫ц╣О©╫г╟О©╫О©╫О©╫О©╫ж╣
 	
-	//хГ╧Ш╠╬╢н╪фйЩж╣п║сзио╢н╪фйЩж╣ё╛к╣цВ╥╒иЗак╤╗й╠фВ╪фйЩрГЁЖ
+	//О©╫О©╫О©╫О©╫О©╫О©╫н╪О©╫О©╫О©╫ж╣п║О©╫О©╫О©╫о╢н╪О©╫О©╫О©╫ж╣О©╫О©╫к╣О©╫О©╫О©╫О©╫О©╫О©╫О©╫к╤О©╫й╠О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫
 	if( nowtime < lasttime )
 	{
-		time += (nowtime + 0xffff - lasttime); //рГЁЖ╨С╣дй╠╪ДтЖа©
+		time += (nowtime + 0xffff - lasttime); //О©╫О©╫О©╫О©╫О©╫О©╫й╠О©╫О©╫О©╫О©╫О©╫О©╫
 	}		
-	else time += ( nowtime - lasttime ) ; //н╢╥╒иЗрГЁЖё╛тЖа©н╙╠╬╢нй╠╪Д-ио╢нй╠╪Д
+	else time += ( nowtime - lasttime ) ; //н╢О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫н╙О©╫О©╫О©╫О©╫й╠О©╫О©╫-О©╫о╢О©╫й╠О©╫О©╫
 	
 	lasttime = nowtime;
 	
@@ -244,14 +250,18 @@ void MX_FREERTOS_Init(void) {
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
-	/* ╤сап╢╢╫╗ */
+	/* О©╫О©╫О©╫п╢О©╫О©╫О©╫ */
 	g_xQueuestp23L_Ori = xQueueCreate(5,sizeof(OriData_STP23L_t));
 	g_xQueuestl06n_Ori    = xQueueCreate(10,sizeof(OriData_STL06N_t));
 	g_xQueueFlyControl = xQueueCreate(1,sizeof(FlyControlType_t));
 	g_xQueueBlueTooth_Ori = xQueueCreate(50,sizeof(char));
 	g_xQueueLidarBuffer = xQueueCreate(5,sizeof(Stl06NAngleBuffer_t));
+
+	#if ENABLE_FLIGHT_DATA_OUTPUT
+	g_xQueueFlightLog = xQueueCreate(10, sizeof(FlightLogData_t));
+	#endif
 	
-	/* ╤сап╪╞╢╢╫╗,╪схК╤сап╪╞ */
+	/* О©╫О©╫О©╫п╪О©╫О©╫О©╫О©╫О©╫,О©╫О©╫О©╫О©╫О©╫О©╫п╪О©╫ */
 	g_xQueueSetSensor = xQueueCreateSet( 5 + 10 );
 	xQueueAddToSet(g_xQueuestp23L_Ori,g_xQueueSetSensor);
 	xQueueAddToSet(g_xQueuestl06n_Ori,g_xQueueSetSensor);
@@ -269,16 +279,20 @@ void MX_FREERTOS_Init(void) {
    xTaskCreate(BluetoothAPPControl_task,"BTAPPTask",128*2,NULL,osPriorityNormal,NULL);
    xTaskCreate(CoordinateHandleTask,"coordTask",128*16,NULL,osPriorityNormal,&g_xTaskHandleCoordTask);
    
-	//╣ВйтхннЯ
+	#if ENABLE_FLIGHT_DATA_OUTPUT
+	xTaskCreate(FlightLogTask, "FlightLogTask", 128*2, NULL, osPriorityLow, NULL);
+	#endif
+   
+	//О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫
 	#if ( 1 == userconfig_OPEN_CPU_USAGE_CHECK ) || ( 1 == userconfig_OPEN_STACK_CHECK ) || ( 1 == userconfig_OPEN_CHECK_HEAPSIZE )
-	 static uint16_t delaytime = 5000;//╢Рс║й╠╪Д╪Д╦Тё╛╣╔н╩tick
+	 static uint16_t delaytime = 5000;//О©╫О©╫с║й╠О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫н╩tick
 	 xTaskCreate(CpuUsageCheckTask,"DebugTask",128, &delaytime ,osPriorityAboveNormal,NULL);
 	#endif
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
   /* add events, ... */
-	g_xEventFlyAction = xEventGroupCreate();//╢╢╫╗кджА╤╞вВйб╪ЧвИ╣дй╣юЩ
+	g_xEventFlyAction = xEventGroupCreate();//О©╫О©╫О©╫О©╫О©╫О©╫О©╫А╤╞О©╫О©╫О©╫б╪О©╫О©╫О©╫О©╫й╣О©╫О©╫
 	
   /* USER CODE END RTOS_EVENTS */
 
@@ -299,18 +313,18 @@ void StartDefaultTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-	  /* ╣х╢ЩкЫспхннЯ©╙й╪ткпп╨Сё╛тый╧дэ╦В╦Ж╢╚╦пфВ╣джп╤оё╛рт╠Цц©╦ЖйЩ╬щ╤╪дэЁи╧╕сКхннЯа╙о╣ио */
+	  /* О©╫х╢О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫й╪О©╫О©╫О©╫п╨О©╫О©╫О©╫й╧О©╫э╦О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫п╤оёО©╫О©╫т╠О©╫ц©О©╫О©╫О©╫О©╫О©╫щ╤О©╫О©╫эЁи╧О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫о╣О©╫О©╫ */
 	  vTaskDelay(400);
 	  
-	  /* фТ╤╞мБн╖╢╚╦пфВ╣дDMA╟Атк */
+	  /* О©╫О©╫О©╫О©╫О©╫О©╫н╖О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫DMAО©╫О©╫О©╫О©╫ */
 	  extern OriData_STP23L_t DMABuf_oridata_stp23L;
 	  HAL_UARTEx_ReceiveToIdle_DMA(&huart5,DMABuf_oridata_stp23L.Buf,userconfig_STP23L_DMABUF_LEN);
 	  
-	  //фТ╤╞юв╢ОйЩ╬щ╟Атк
+	  //О©╫О©╫О©╫О©╫О©╫в╢О©╫О©╫О©╫О©╫щ╟О©╫О©╫О©╫
 	  extern OriData_STL06N_t DMAbuf_ori_stl06n;
 	  HAL_UARTEx_ReceiveToIdle_DMA(&huart2,DMAbuf_ori_stl06n.Buf,userconfig_STL06N_DMABUF_LEN);
 	  
-	  vTaskDelete(NULL);//вти╠
+	  vTaskDelete(NULL);//О©╫О©╫и╠
   }
   /* USER CODE END StartDefaultTask */
 }
@@ -327,7 +341,7 @@ void CpuUsageCheckTask(void *param)
 	while( 1 )
 	{
 #if 1 == userconfig_OPEN_CPU_USAGE_CHECK
-		//╢Рс║CPUу╪╠х
+		//О©╫О©╫с║CPUу╪О©╫О©╫
 		vTaskGetRunTimeStats(showbuf);
 		xSemaphoreTake(HandleMutex_printf,portMAX_DELAY);
 		printf("TaskName\tUseTime\tCPU\r\n");
@@ -337,7 +351,7 @@ void CpuUsageCheckTask(void *param)
 #endif
 
 #if 1 == userconfig_OPEN_STACK_CHECK
-		//╢Рс║йёсЮхннЯу╩╢Сп║,╣╔н╩word
+		//О©╫О©╫с║йёО©╫О©╫О©╫О©╫О©╫О©╫у╩О©╫О©╫п║,О©╫О©╫н╩word
 		vTaskList(showbuf);
 		xSemaphoreTake(HandleMutex_printf,portMAX_DELAY);
 		printf("TaskName\tTaskState\tTaskPrio\tStackSize\tTaskNum\r\n");
@@ -347,7 +361,7 @@ void CpuUsageCheckTask(void *param)
 #endif
 		
 #if 1 == userconfig_OPEN_CHECK_HEAPSIZE
-		//╢Рс║йёсЮ╣д╤ягЬ╢Сп║,╣╔н╩bytes
+		//О©╫О©╫с║йёО©╫О©╫д╤О©╫О©╫О©╫О©╫О©╫п║,О©╫О©╫н╩bytes
 		xSemaphoreTake(HandleMutex_printf,portMAX_DELAY);
 		printf("free heap size : %d bytes\r\n\r\n",xPortGetFreeHeapSize());
 		xSemaphoreGive(HandleMutex_printf);
@@ -358,4 +372,3 @@ void CpuUsageCheckTask(void *param)
 #endif
 
 /* USER CODE END Application */
-

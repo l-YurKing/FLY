@@ -102,17 +102,6 @@ static uint8_t controlCmdNumber = IDLECmd;
 //������������
 #if ENABLE_FLIGHT_DATA_OUTPUT
 static uint16_t dataOutputCounter = 0;
-static void OutputFlightData(
-	ATTITUDE_DATA_t* att,
-	IMU_DATA_t* imu,
-	float height,
-	float posX, float posY,
-	float targetX, float targetY,
-	float speedX, float speedY,
-	float voltage,
-	uint16_t motorA, uint16_t motorB, uint16_t motorC, uint16_t motorD,
-	FlyControlType_t* cmd
-);
 #endif
 
 //��ɵ�ѹ����
@@ -430,7 +419,13 @@ void balance_task(void* param)
 		/* ��ȡ����ָ�� */
 		FlyControlType_t controlVal = { 0 };
 		static FlyControlType_t lastControlVal = { 0 }; //�ϴο���ָ��
-		static uint8_t refresh_cmdstate = 0;//����״̬ˢ��
+		static uint8_t refresh_cmdstate = 0;
+		
+		// 指令平滑处理（Slew Rate Limiter）- 解决手动操控抖动问题
+		static float target_pitch_smooth = 0;
+		static float target_roll_smooth = 0;
+		const float max_pitch_rate = 0.5f;  // 度/周期，限制每周期最大变化量（200Hz，0.005秒/周期）
+		const float max_roll_rate = 0.5f;   // 10度在0.15秒内完成 = 10 / (0.15/0.005) = 0.33度/周期，设为0.5更平滑
 		if( pdPASS == xQueueReceive(g_xQueueFlyControl,&controlVal,0) )
 		{
 			lastControlVal = controlVal; //�������µ�����ָ��
@@ -439,13 +434,48 @@ void balance_task(void* param)
 			//��ͷģʽ
 			if( uxBits & FlyMode_HeadLessMode_Event )
 			{
-				FlyControl_pitch = -controlVal.roll * sin(AttitudeVal.yaw) + controlVal.pitch * cos(AttitudeVal.yaw);
-				FlyControl_roll =  controlVal.roll * cos(AttitudeVal.yaw) + controlVal.pitch * sin(AttitudeVal.yaw);
+				float raw_pitch = -controlVal.roll * sin(AttitudeVal.yaw) + controlVal.pitch * cos(AttitudeVal.yaw);
+				float raw_roll =  controlVal.roll * cos(AttitudeVal.yaw) + controlVal.pitch * sin(AttitudeVal.yaw);
+				
+				// 平滑处理Pitch
+				float pitch_diff = raw_pitch - target_pitch_smooth;
+				if (fabs(pitch_diff) > max_pitch_rate) {
+					target_pitch_smooth += (pitch_diff > 0 ? max_pitch_rate : -max_pitch_rate);
+				} else {
+					target_pitch_smooth = raw_pitch;
+				}
+				
+				// 平滑处理Roll
+				float roll_diff = raw_roll - target_roll_smooth;
+				if (fabs(roll_diff) > max_roll_rate) {
+					target_roll_smooth += (roll_diff > 0 ? max_roll_rate : -max_roll_rate);
+				} else {
+					target_roll_smooth = raw_roll;
+				}
+				
+				FlyControl_pitch = target_pitch_smooth;
+				FlyControl_roll = target_roll_smooth;
 			}
 			else
 			{
-				FlyControl_pitch =  controlVal.pitch;
-				FlyControl_roll =  controlVal.roll;
+				// 平滑处理Pitch
+				float pitch_diff = controlVal.pitch - target_pitch_smooth;
+				if (fabs(pitch_diff) > max_pitch_rate) {
+					target_pitch_smooth += (pitch_diff > 0 ? max_pitch_rate : -max_pitch_rate);
+				} else {
+					target_pitch_smooth = controlVal.pitch;
+				}
+				
+				// 平滑处理Roll
+				float roll_diff = controlVal.roll - target_roll_smooth;
+				if (fabs(roll_diff) > max_roll_rate) {
+					target_roll_smooth += (roll_diff > 0 ? max_roll_rate : -max_roll_rate);
+				} else {
+					target_roll_smooth = controlVal.roll;
+				}
+				
+				FlyControl_pitch = target_pitch_smooth;
+				FlyControl_roll = target_roll_smooth;
 			}
 			
 			//Z�������Ϊ�ۼ�ֵ
@@ -749,12 +779,26 @@ void balance_task(void* param)
 		if( ++dataOutputCounter >= 10 )  //200Hz�������10��������20Hz����,�������ز�������
 		{
 			dataOutputCounter = 0;
-			OutputFlightData(
-				&AttitudeVal, &axis_9Val, use_distance,
-				posX, posY, targetPosX, targetPosY, x_dot, y_dot,
-				g_robotVOL, motor.A.throttle, motor.B.throttle, motor.C.throttle, motor.D.throttle,
-				&lastControlVal
-			);
+			extern QueueHandle_t g_xQueueFlightLog;
+			FlightLogData_t logData = {
+				.attitude = AttitudeVal,
+				.imu = axis_9Val,
+				.height = use_distance,
+				.posX = posX,
+				.posY = posY,
+				.targetX = targetPosX,
+				.targetY = targetPosY,
+				.speedX = x_dot,
+				.speedY = y_dot,
+				.voltage = g_robotVOL,
+				.motorA = motor.A.throttle,
+				.motorB = motor.B.throttle,
+				.motorC = motor.C.throttle,
+				.motorD = motor.D.throttle,
+				.cmd = lastControlVal
+			};
+			// 闈為樆濉炲啓鍏ラ槦鍒楋紝闃熷垪婊℃椂涓㈠純鏈鏁版嵁
+			xQueueSend(g_xQueueFlightLog, &logData, 0);
 		}
 		#endif
 
@@ -1141,79 +1185,6 @@ static uint16_t weight_to_throttle(float weight,float height)
 �������ܣ�ͨ��USART1���������������,CSV��ʽ,����������
 ��    �ߣ�Claude Code
 **************************************************************************/
-#if ENABLE_FLIGHT_DATA_OUTPUT
-static void OutputFlightData(
-	ATTITUDE_DATA_t* att,
-	IMU_DATA_t* imu,
-	float height,
-	float posX, float posY,
-	float targetX, float targetY,
-	float speedX, float speedY,
-	float voltage,
-	uint16_t motorA, uint16_t motorB, uint16_t motorC, uint16_t motorD,
-	FlyControlType_t* cmd
-)
-{
-	extern SemaphoreHandle_t HandleMutex_printf;  //��ӡ������
-
-	//ѡ�����ڣ����ѡ��UART4����
-	#if FLIGHT_DATA_USE_BLUETOOTH
-		extern UART_HandleTypeDef huart4;
-		UART_HandleTypeDef* dataSerial = &huart4;
-	#else
-		extern UART_HandleTypeDef huart1;
-		UART_HandleTypeDef* dataSerial = &huart1;
-	#endif
-
-	//��������������
-	if( xSemaphoreTake(HandleMutex_printf, 0) == pdTRUE )
-	{
-		static char output_buffer[512];
-		int len = 0;
-
-		//��ȡ����Դ����
-		const char* cmdSource[] = {"IDLE", "APP", "PS2", "AVOID"};
-		const char* source = (cmd->source < 4) ? cmdSource[cmd->source] : "UNKN";
-
-		//�Ż���������ʽ�����������ƺ͵�λ
-		len = sprintf(output_buffer,
-			"[CMD] Src:%s R:%.3f P:%.3f Gz:%.3f H:%.3f | "
-			"[ATTITUDE] Roll:%.3f Pitch:%.3f Yaw:%.3f | "
-			"[GYRO] X:%.2f Y:%.2f Z:%.2f | "
-			"[ACCEL] X:%.2f Y:%.2f Z:%.2f | "
-			"[POSITION] H:%.3f X:%.3f Y:%.3f | "
-			"[TARGET] X:%.3f Y:%.3f | "
-			"[SPEED] X:%.3f Y:%.3f | "
-			"[POWER] V:%.2f | "
-			"[MOTOR] A:%d B:%d C:%d D:%d\r\n",
-			// ����ָ��
-			source, cmd->roll * 57.3f, cmd->pitch * 57.3f, cmd->gyroz * 57.3f, cmd->height,
-			// ̬�Ƕȣ��ȣ�
-			att->roll * 57.3f, att->pitch * 57.3f, att->yaw * 57.3f,
-			// ������Ǿ��ٶȣ�rad/s��
-			imu->gyro.x, imu->gyro.y, imu->gyro.z,
-			// �����ٶȣ�m/s����
-			imu->accel.x, imu->accel.y, imu->accel.z,
-			// λ�ã����ף�
-			height, posX, posY,
-			// Ŀ��λ�ã����ף�
-			targetX, targetY,
-			// �ٶȣ�m/s��
-			speedX, speedY,
-			// ���ѣ�V��
-			voltage,
-			// ���������ֵ
-			motorA, motorB, motorC, motorD
-		);
-
-		//���ͼ�����
-		#if FLIGHT_DATA_USE_BLUETOOTH
-			//����ʹ��DMA����,����ʹ����ʽ����
-			HAL_UART_Transmit(dataSerial, (uint8_t*)output_buffer, len, 100);
-		#else
-			//USART1ʹ��printf�ķ�ʽ(�Ѿ����ã�
-			printf("%s", output_buffer);
-		#endif
 
 		xSemaphoreGive(HandleMutex_printf);
 	}

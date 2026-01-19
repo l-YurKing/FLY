@@ -2,7 +2,7 @@
 #include "math.h"
 
 
-//Çå³ı»ıÀÛÁ¿,ÓÃÓÚÍ£Ö¹¿ØÖÆÊ±Ê¹ÓÃ
+// PIDé‡ç½®å‡½æ•°,ç³»ç»Ÿåœæ­¢é£è¡Œæ—¶ä½¿ç”¨
 void PID_Reset(PIDControllerType_t* pid)
 {
 	pid->intergral = 0;
@@ -11,54 +11,54 @@ void PID_Reset(PIDControllerType_t* pid)
 	pid->derivative = 0;
 }
 
-//PID¸üĞÂº¯Êı
+// PIDæ›´æ–°å‡½æ•°
 void PID_Update(PIDControllerType_t* pid,float target,float current)
 {
 	
-	float error = target - current; //±¾´ÎÎó²î
+	float error = target - current; // è®¡ç®—è¯¯å·®
 	
-//	//»ı·ÖÒò×Ó
+//	// ç§¯åˆ†é¡¹
 //	float integral_factor = (fabs(error) < pid->IntegralThreshold) ? 1.0f : (pid->IntegralThreshold / fabs(error));
 //	pid->intergral += integral_factor  * error;
 	
 	if( fabs(error) < pid->IntegralThreshold ) pid->intergral += error;
 	
-	//Î¢·ÖÏî,²ÉÓÃÒ»½×µÍÍ¨ÂË²¨
+	// å¾®åˆ†é¡¹,ä½¿ç”¨ä¸€é˜¶ä½é€šæ»¤æ³¢
 	float Tmpderivative = (error - pid->prev_error);
 	pid->derivative = pid->alpha*Tmpderivative + (1.0f-pid->alpha)*pid->derivative;
 	pid->prev_error = error;
 	
-	//Êä³öÏŞ·ù
+	// è¾“å‡ºé™å¹…
 	if( pid->output > pid->LimitOutputMax ) 
 	{
 		pid->output = pid->LimitOutputMax;
-//		if( error>0 ) pid->intergral *= 0.9f; // ÇáÎ¢¼õÉÙ»ı·ÖÏî£¬·ÀÖ¹ÀÛ»ı¹ı¶à
+//		if( error>0 ) pid->intergral *= 0.9f; // å¾®è°ƒå‡å°‘ç§¯åˆ†ï¼Œé˜²æ­¢ç´¯ç§¯è¯¯å·®
 	}
 	if( pid->output < pid->LimitOutputMin ) 
 	{
 		pid->output = pid->LimitOutputMin;
-//		if( error<0 ) pid->intergral *= 0.9f; // ÇáÎ¢¼õÉÙ»ı·ÖÏî£¬·ÀÖ¹ÀÛ»ı¹ı¶à
+//		if( error<0 ) pid->intergral *= 0.9f; // å¾®è°ƒå‡å°‘ç§¯åˆ†ï¼Œé˜²æ­¢ç´¯ç§¯è¯¯å·®
 	}
 	
-	//»ı·ÖÏŞ·ù
+	// ç§¯åˆ†é™å¹…
 	if( pid->intergral>pid->LimitIntegralMax ) pid->intergral = pid->LimitIntegralMax;
 	if( pid->intergral<pid->LimitIntegralMin ) pid->intergral = pid->LimitIntegralMin;
 	
-	//pidÊä³ö
+	// pidè¾“å‡º
 	pid->output = pid->kp * error + pid->ki * pid->intergral + pid->kd*pid->derivative;
 	
 }
 
-//½ÇËÙ¶È»·roll
+// è§’é€Ÿåº¦ç¯roll
 PIDControllerType_t RollRatePID = {
 	.kp = 85.0f,
 	.ki = 0.0f,
 	.kd = 0.0f,
-	.LimitIntegralMax = 3.5f,   //»ı·ÖÏŞ·ù,200¡ã/s
+	.LimitIntegralMax = 3.5f,   // ç§¯åˆ†é™å¹…,200åº¦/s
 	.LimitIntegralMin = -3.5f, 
-	.LimitOutputMax = 500.0f,   //½ÇËÙ¶È»·Êä³öÎªÓÍÃÅÖµ
+	.LimitOutputMax = 500.0f,   // è§’é€Ÿåº¦ç¯è¾“å‡ºä¸ºé™å¹…å€¼
 	.LimitOutputMin = -500.0f,
-	.IntegralThreshold = 0.35f , // 20¡ã/s¿ªÊ¼»ı·Ö
+	.IntegralThreshold = 0.35f , // 20åº¦/så¼€å§‹ç§¯åˆ†
 	.alpha = 0.8f,
 	.prev_error = 0,
 	.intergral = 0,
@@ -66,16 +66,16 @@ PIDControllerType_t RollRatePID = {
 	.output = 0
 };
 
-//½ÇËÙ¶È»·pitch
+// è§’é€Ÿåº¦ç¯pitch
 PIDControllerType_t PitchRatePID = {
 	.kp = 85.0f,
 	.ki = 0.0f,
-	.kd = 0.0f,
-	.LimitIntegralMax = 3.5f,   //»ı·ÖÏŞ·ù,200¡ã/s
+	.kd = 0.8f,
+	.LimitIntegralMax = 3.5f,   // ç§¯åˆ†é™å¹…,200åº¦/s
 	.LimitIntegralMin = -3.5f, 
-	.LimitOutputMax = 500.0f,   //½ÇËÙ¶È»·Êä³öÎªÓÍÃÅÖµ
+	.LimitOutputMax = 500.0f,   // è§’é€Ÿåº¦ç¯è¾“å‡ºä¸ºé™å¹…å€¼
 	.LimitOutputMin = -500.0f,
-	.IntegralThreshold = 0.35f , // 20¡ã/s¿ªÊ¼»ı·Ö
+	.IntegralThreshold = 0.35f , // 20åº¦/så¼€å§‹ç§¯åˆ†
 	.alpha = 0.8f,
 	.prev_error = 0,
 	.intergral = 0,
@@ -83,16 +83,16 @@ PIDControllerType_t PitchRatePID = {
 	.output = 0
 };
 
-//½Ç¶È»·roll
+// è§’åº¦ç¯roll
 PIDControllerType_t RollPID = {
 	.kp = 4.2f,
 	.ki = 0.0f,
 	.kd = 0.0f,
 	.LimitIntegralMax = 0.52f,
-	.LimitIntegralMin = -0.52f,    //»ı·ÖÏŞÖÆ,30¡ã
-	.LimitOutputMax = 1.7f,      //½ÇËÙ¶ÈÊä³ö,×î´óÎª 100¡ã/s
+	.LimitIntegralMin = -0.52f,    // ç§¯åˆ†é™å¹…,30åº¦
+	.LimitOutputMax = 1.7f,      // è§’é€Ÿåº¦è¾“å‡º,æœ€å¤§ä¸º 100åº¦/s
 	.LimitOutputMin = -1.7f,
-	.IntegralThreshold = 0.2f ,  //10¡ã»ı·ÖÉúĞ§ÉúĞ§
+	.IntegralThreshold = 0.2f ,  // 10åº¦å¼€å§‹ç§¯åˆ†æœ‰æ•ˆ
 	.alpha = 0.9f,
 	.prev_error = 0,
 	.intergral = 0,
@@ -100,16 +100,16 @@ PIDControllerType_t RollPID = {
 	.output = 0
 };
 
-//½Ç¶È»·pitch
+// è§’åº¦ç¯pitch
 PIDControllerType_t PitchPID = {
 	.kp = 4.2f,
 	.ki = 0.0f,
 	.kd = 0.0f,
 	.LimitIntegralMax = 0.52f,
-	.LimitIntegralMin = -0.52f,    //»ı·ÖÏŞÖÆ,30¡ã
-	.LimitOutputMax = 1.7f,      //½ÇËÙ¶ÈÊä³ö,×î´óÎª 100¡ã/s
+	.LimitIntegralMin = -0.52f,    // ç§¯åˆ†é™å¹…,30åº¦
+	.LimitOutputMax = 1.7f,      // è§’é€Ÿåº¦è¾“å‡º,æœ€å¤§ä¸º 100åº¦/s
 	.LimitOutputMin = -1.7f,
-	.IntegralThreshold = 0.2f ,  //10¡ã»ı·ÖÉúĞ§ÉúĞ§
+	.IntegralThreshold = 0.2f ,  // 10åº¦å¼€å§‹ç§¯åˆ†æœ‰æ•ˆ
 	.alpha = 0.9f,
 	.prev_error = 0,
 	.intergral = 0,
@@ -117,16 +117,16 @@ PIDControllerType_t PitchPID = {
 	.output = 0
 };
 
-//½ÇËÙ¶È»·yaw
+// è§’é€Ÿåº¦ç¯yaw
 PIDControllerType_t YawRatePID = {
 	.kp = 200.0f,
 	.ki = 0.0f,
 	.kd = 0.0f,
-	.LimitIntegralMax = 1.04f,   //»ı·ÖÏŞ·ù,60¡ã/s
+	.LimitIntegralMax = 1.04f,   // ç§¯åˆ†é™å¹…,60åº¦/s
 	.LimitIntegralMin = -1.04f, 
 	.LimitOutputMax = 500,
 	.LimitOutputMin = -500,
-	.IntegralThreshold = 0.17f , // 10¡ã/s¿ªÊ¼»ı·Ö
+	.IntegralThreshold = 0.17f , // 10åº¦/så¼€å§‹ç§¯åˆ†
 	.alpha = 0.8,
 	.prev_error = 0,
 	.intergral = 0,
@@ -134,16 +134,16 @@ PIDControllerType_t YawRatePID = {
 	.output = 0
 };
 
-//½Ç¶È»·yaw
+// è§’åº¦ç¯yaw
 PIDControllerType_t YawPID = {
 	.kp = 6.0f,
 	.ki = 0.0f,
 	.kd = 0.0f,
 	.LimitIntegralMax = 0.52f,
-	.LimitIntegralMin = -0.52f,    //»ı·ÖÏŞÖÆ,30¡ã
-	.LimitOutputMax = 3.7f,      //½ÇËÙ¶ÈÊä³ö,×î´óÎª 100¡ã/s
+	.LimitIntegralMin = -0.52f,    // ç§¯åˆ†é™å¹…,30åº¦
+	.LimitOutputMax = 3.7f,      // è§’é€Ÿåº¦è¾“å‡º,æœ€å¤§ä¸º 100åº¦/s
 	.LimitOutputMin = -3.7f,
-	.IntegralThreshold = 0.2f ,  //10¡ã»ı·ÖÉúĞ§ÉúĞ§
+	.IntegralThreshold = 0.2f ,  // 10åº¦å¼€å§‹ç§¯åˆ†æœ‰æ•ˆ
 	.alpha = 1.0f,
 	.prev_error = 0,
 	.intergral = 0,
@@ -216,4 +216,3 @@ PIDControllerType_t HeightPID = {
 	.derivative = 0,
 	.output = 0
 };
-
