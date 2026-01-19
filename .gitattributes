@@ -1,0 +1,22 @@
+# Git编码配置 - 确保GitHub正确显示中文，同时不影响Keil
+# 注意：此文件只影响Git的行为，不改变文件本身的编码
+
+# C/C++源文件 - 保持原编码（GBK），不进行转换
+*.c text eol=lf
+*.h text eol=lf
+*.cpp text eol=lf
+*.hpp text eol=lf
+
+# 其他文本文件
+*.md text eol=lf
+*.txt text eol=lf
+*.json text eol=lf
+*.xml text eol=lf
+
+# 二进制文件
+*.hex binary
+*.bin binary
+*.o binary
+*.elf binary
+*.axf binary
+

@@ -1,0 +1,205 @@
+# WHEELTEC 四旋翼飞控系统 - Cursor IDE 代码规则
+
+## 核心架构原则
+
+### 1. 解耦和模块化设计
+- **任务间通信必须使用队列**：禁止在任务间直接调用函数，所有数据传递通过 FreeRTOS 队列完成
+- **每个功能独立成任务**：每个独立功能应创建独立的 FreeRTOS 任务，任务名格式：`*_task.c`
+- **分层架构严格分离**：
+  - `WHEELTEC_BSP/` - 板级支持包（驱动层），硬件抽象
+  - `WHEELTEC_APP/` - 应用程序层，业务逻辑
+  - `Core/` - CubeMX生成的HAL层代码
+
+### 2. FreeRTOS 队列架构规范
+
+#### 队列使用原则
+- **数据传递**：使用 `xQueueSend()` 进行非阻塞写入（超时参数为0），队列满时丢弃数据以保证实时性
+- **数据接收**：使用 `xQueueReceive()` 在任务中阻塞等待数据
+- **队列创建位置**：在 `Core/Src/freertos.c` 的 `/* USER CODE BEGIN RTOS_QUEUES */` 区域
+- **任务创建位置**：在 `Core/Src/freertos.c` 的 `/* USER CODE BEGIN RTOS_THREADS */` 区域
+
+#### 队列命名规范
+- 队列句柄命名：`g_xQueue[功能名]`，例如：
+  - `g_xQueueFlyControl` - 控制指令队列
+  - `g_xQueueFlightLog` - 飞行日志队列
+  - `g_xQueuestp23L_Ori` - STP23L传感器原始数据队列
+
+### 3. 任务设计规范
+
+#### 任务优先级
+- **控制任务**：`osPriorityNormal` 或更高（如 `balance_task`）
+- **数据处理任务**：`osPriorityNormal`（如 `SensorHandleTask`）
+- **日志/显示任务**：`osPriorityLow`（如 `FlightLogTask`、`ShowTask`）
+
+#### 任务函数签名
+```c
+void TaskName_task(void* param)
+{
+    // RTOS使用浮点（如需要）
+    portTASK_USES_FLOATING_POINT();
+    
+    // 外部队列声明
+    extern QueueHandle_t g_xQueueXXX;
+    
+    while(1)
+    {
+        // 从队列读取数据
+        // 处理数据
+        // 必要时写入其他队列
+    }
+}
+```
+
+### 4. 文件组织规范
+
+#### 文件命名
+- **任务文件**：`*_task.c`（如 `balance_task.c`、`flight_log_task.c`）
+- **头文件**：`*_task.h`，放在 `WHEELTEC_APP/Inc/` 目录
+- **源文件**：放在 `WHEELTEC_APP/` 目录
+
+#### 头文件包含顺序
+```c
+// 1. 项目头文件
+#include "task_name.h"
+
+// 2. C标准库
+#include <stdio.h>
+#include <string.h>
+#include <math.h>
+
+// 3. FreeRTOS
+#include "FreeRTOS.h"
+#include "queue.h"
+#include "task.h"
+#include "event_groups.h"
+#include "semphr.h"
+
+// 4. HAL库
+#include "usart.h"
+#include "tim.h"
+
+// 5. BSP层
+#include "bsp_xxx.h"
+
+// 6. APP层其他模块
+#include "balance_task.h"
+```
+
+### 5. 代码风格
+
+#### 函数命名
+- **任务函数**：`[功能名]_task(void* param)`
+- **回调函数**：`[功能名]_Callback(...)`
+- **静态函数**：使用 `static` 关键字，命名使用下划线或驼峰
+
+#### 注释规范
+- 支持中文注释
+- 函数功能说明放在函数上方
+- 关键逻辑添加行内注释
+- 使用 `//` 单行注释，`/* */` 多行注释
+
+#### 变量命名
+- **全局变量**：`g_` 前缀（如 `g_robotVOL`）
+- **只读全局变量**：`g_readonly_` 前缀（如 `g_readonly_distance`）
+- **队列句柄**：`g_xQueue` 前缀
+- **事件组**：`g_xEvent` 前缀
+- **任务句柄**：`*_Handle` 后缀
+
+### 6. 数据传递模式
+
+#### 禁止的模式（违反解耦）
+```c
+// ❌ 错误：任务间直接函数调用
+void balance_task(void* param) {
+    OutputFlightData(...);  // 直接调用，阻塞控制循环
+}
+
+// ❌ 错误：直接访问其他任务的全局变量
+extern float other_task_data;  // 直接访问，无同步机制
+```
+
+#### 正确的模式（解耦设计）
+```c
+// ✅ 正确：通过队列传递数据
+void balance_task(void* param) {
+    FlightLogData_t logData = {...};
+    xQueueSend(g_xQueueFlightLog, &logData, 0);  // 非阻塞写入队列
+}
+
+// ✅ 正确：独立任务从队列读取并处理
+void FlightLogTask(void* param) {
+    FlightLogData_t logData;
+    xQueueReceive(g_xQueueFlightLog, &logData, portMAX_DELAY);
+    FormatAndOutputFlightLog(&logData);
+}
+```
+
+### 7. 新增功能开发流程
+
+当需要添加新功能时：
+
+1. **定义数据结构**（如需要）
+   - 在对应的 `.h` 文件中定义 `typedef struct`
+
+2. **在 freertos.c 中创建队列**（如需要）
+   ```c
+   /* USER CODE BEGIN RTOS_QUEUES */
+   g_xQueueNewFeature = xQueueCreate(10, sizeof(NewFeatureData_t));
+   /* USER CODE END RTOS_QUEUES */
+   ```
+
+3. **创建任务文件**
+   - 创建 `WHEELTEC_APP/new_feature_task.c`
+   - 创建 `WHEELTEC_APP/Inc/new_feature_task.h`
+
+4. **在 freertos.c 中创建任务**
+   ```c
+   /* USER CODE BEGIN RTOS_THREADS */
+   xTaskCreate(NewFeatureTask, "NewFeatureTask", 128*2, NULL, osPriorityNormal, NULL);
+   /* USER CODE END RTOS_THREADS */
+   ```
+
+5. **包含头文件**
+   ```c
+   #include "new_feature_task.h"
+   ```
+
+### 8. 性能优化原则
+
+- **控制任务优先**：`balance_task` 是核心控制任务（200Hz），任何可能阻塞的操作都应移到独立任务
+- **非阻塞操作**：在控制任务中使用 `xQueueSend(..., 0)` 非阻塞写入，队列满时丢弃数据
+- **互斥锁使用**：串口输出等共享资源使用互斥锁保护，但应尽量在低优先级任务中使用
+
+### 9. 错误处理
+
+- **队列创建失败**：检查返回值，必要时使用 `configASSERT()`
+- **队列满时**：使用非阻塞写入，丢弃数据是可接受的权衡（保证实时性）
+- **任务栈溢出**：使用 FreeRTOS 的栈检查功能监控
+
+### 10. 代码审查检查清单
+
+在提交代码前，检查：
+- [ ] 任务间是否使用队列通信（而非直接函数调用）
+- [ ] 新队列是否在 `freertos.c` 的 `RTOS_QUEUES` 区域创建
+- [ ] 新任务是否在 `freertos.c` 的 `RTOS_THREADS` 区域创建
+- [ ] 控制任务中是否使用非阻塞操作
+- [ ] 文件命名是否符合规范（`*_task.c`）
+- [ ] 头文件是否放在 `WHEELTEC_APP/Inc/` 目录
+
+## 示例：正确的模块化设计
+
+参考 `flight_log_task.c` 的实现：
+- 独立的任务文件
+- 从队列读取数据
+- 独立的格式化函数
+- 不直接调用其他任务的函数
+- 低优先级，不影响控制任务
+
+## 禁止的反模式
+
+1. ❌ 在 `balance_task` 中直接调用串口输出函数
+2. ❌ 任务间共享全局变量而无同步机制
+3. ❌ 在控制任务中使用阻塞操作（如 `HAL_Delay()`）
+4. ❌ 将多个不相关的功能放在同一个任务中
+5. ❌ 直接访问其他模块的内部实现
+
